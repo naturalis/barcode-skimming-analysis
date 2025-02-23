@@ -1,0 +1,39 @@
+---
+title: "Barcode validation analysis"
+author: '@rvosa'
+date: "2025-02-23"
+output: pdf_document
+---
+
+# BGE Project Milestone MS8.4.1: DNA Barcode Validation Analysis
+
+This document analyzes DNA barcode validation results from the BGE project, 
+combining outputs from two institutions (Naturalis and Natural History Museum) 
+with BOLD spreadsheet data. The analysis explores parameter optimization, 
+sequence quality metrics, temporal patterns, and taxonomic success rates. The 
+results will inform optimization of the MGE pipeline parameters and contribute 
+to understanding factors affecting DNA barcode recovery from historical 
+specimens.
+
+```{r}
+source("src/functions/data_loading.R")
+
+validation_data <- load_validation_data(
+  nhm_path = "data/concatenated_untriaged.tsv",
+  naturalis_path = "data/sum.tsv"
+)
+
+# Access individual dataframes
+nhm_df <- validation_data$nhm
+naturalis_df <- validation_data$naturalis
+```
+
+```{r}
+source("src/functions/preprocessing.R")
+
+joined_data <- join_validation_taxonomy(
+  validation_data,
+  lab_sheet_path = "data/lab_sheet.tsv",
+  taxonomy_path = "data/taxonomy.tsv"
+)
+```
