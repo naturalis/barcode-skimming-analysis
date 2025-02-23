@@ -5,7 +5,7 @@ Sample ID	Specimen identifier, may contain plate/well information in format BGE_
 Field ID	Alternative identifier assigned during specimen collection
 BIN	Barcode Index Number, a cluster identifier assigned by BOLD when valid barcode is available
 Catalog Num	Permanent specimen identifier in the collection where it is housed
-COI-5P Seq. Length	Length of the COI-5P barcode sequence (if available). Placeholder "0[n]" indicates sequence not yet available
+COI-5P Seq. Length	Length of the COI-5P barcode sequence (if available). Placeholder `0[n]` indicates sequence not yet available
 COI-5P Trace Count	Number of sequencing traces available for the COI-5P marker
 COI-5P Accession	Accession number(s) for the sequence in public databases
 Image Count	Number of specimen images available in BOLD
