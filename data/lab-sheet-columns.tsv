@@ -1,0 +1,22 @@
+colname	definition
+Project Code	Short identifier for the project under which the specimen is processed (e.g., 'BGENL' for BGE Netherlands)
+Process ID	Unique identifier assigned by BOLD following pattern: letter prefix + integer + hyphen + two-digit year (e.g., BGENL1996-24), used as prefix in sequence identifiers
+Sample ID	Specimen identifier, may contain plate/well information in format BGE_NNNNN_XNN where NNNNN is plate number and XNN is well position
+Field ID	Alternative identifier assigned during specimen collection
+BIN	Barcode Index Number, a cluster identifier assigned by BOLD when valid barcode is available
+Catalog Num	Permanent specimen identifier in the collection where it is housed
+COI-5P Seq. Length	Length of the COI-5P barcode sequence (if available). Placeholder "0[n]" indicates sequence not yet available
+COI-5P Trace Count	Number of sequencing traces available for the COI-5P marker
+COI-5P Accession	Accession number(s) for the sequence in public databases
+Image Count	Number of specimen images available in BOLD
+Barcode Compliant	Whether the sequence meets BOLD's barcode compliance criteria
+Contamination	Indicates if contamination is suspected in the sequence
+Stop Codon	Indicates if stop codons were found in the sequence
+Flagged Record	Indicates if the record has been flagged for review
+Collection Date	When the specimen was collected, in DD-Mon-YYYY format
+Identification	Scientific name assigned to the specimen
+Life Stage	Developmental stage of the specimen when collected
+Extra Info	Additional specimen information
+Voucher Type	Type of specimen preservation
+Institution	Name of institution where the specimen is permanently stored
+Notes	Additional remarks about the specimen or record

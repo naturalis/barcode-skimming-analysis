@@ -1,0 +1,15 @@
+colname	definition
+Sample ID	Specimen identifier that links to the Lab Sheet Sample ID
+Phylum	Higher taxonomic rank representing major animal groups
+Class	Taxonomic rank below phylum
+Order	Taxonomic rank below class
+Family	Taxonomic rank below order
+Subfamily	Taxonomic rank below family, may be empty depending on taxonomic group and level of curation in BOLD
+Tribe	Taxonomic rank below subfamily
+Genus	Taxonomic rank below tribe
+Species	Full species name including genus, may be empty if specimen could not be identified to species level
+Subspecies	Taxonomic rank below species if applicable
+Identifier	Name of person who made the taxonomic identification
+Identifier Email	Contact information for the identifier
+Identification Method	Method used to determine the taxonomic identification
+Taxonomy Notes	Additional notes about the taxonomic assignment

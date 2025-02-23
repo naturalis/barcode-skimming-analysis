@@ -1,0 +1,31 @@
+colname	naturalis	nhm	definition
+sequence_id	1	1	Unique identifier for the sequence within the dataset (first word of the FASTA header), maps onto BOLD process ID by stripping everything after the first '_'
+ambig_basecount	1	1	Number of ambiguous bases (IUPAC ambiguity codes) within the barcode region of the sequence
+ambig_full_basecount	1	1	Number of ambiguous bases in the full sequence, including regions outside the barcode region
+dataset	1	1	Name or identifier of the input dataset (e.g., input FASTA filename)
+error	1	1	Error message if validation failed, 'None' if validation was successful
+identification	1	1	Expected taxon name at the validation rank (typically family) as provided by collectors
+identification_method	1	1	Method used for taxonomic validation (currently always 'BLAST')
+identification_rank	1	1	Taxonomic rank at which the validation was performed (typically 'family')
+nuc_basecount	1	1	Number of nucleotide bases within the barcode region
+nuc_full_basecount	1	1	Total number of nucleotide bases in the full sequence
+obs_taxon	1	1	Comma-separated list of observed taxa at the validation rank from BLAST results
+species	1	1	Expected species name if provided with the sequence
+stop_codons	1	1	Number of stop codons found in the amino acid translation (protein-coding markers only)
+cov_avg	0	1	Average coverage depth of the assembled sequence
+cov_max	0	1	Maximum coverage depth at any position in the sequence
+cov_min	0	1	Minimum coverage depth at any position in the sequence
+cov_med	0	1	Median coverage depth of the sequence
+genes	0	1	List of genes targeted in the assembly (appears to be always ['cox1'] in this dataset)
+length	0	1	Full length of the assembled sequence including any flanking regions
+n_aligned	0	1	Number of reads that aligned during assembly
+n_reads	0	1	Total number of input reads processed
+output_dir	0	1	Directory path where assembly results were written
+protein_reference_file	0	1	Path to the reference protein sequences used for assembly
+r	0	1	Read length multiplier parameter in MGE pipeline (values: 1.0, 1.3, or 1.5)
+run_name	0	1	Identifier for the assembly run
+s	0	1	Sequence similarity threshold parameter in MGE pipeline (values: 50 or 100)
+samples_file	0	1	Path to the input file containing sample read paths
+skipped_reads_low_rel_score	0	1	Number of reads skipped due to low alignment scores
+skipped_reads_low_rel	0	1	Alternative column name for skipped reads (appears unused)
+Filename	0	1	Optional filename field (appears unused in this dataset)
