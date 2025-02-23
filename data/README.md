@@ -3,7 +3,7 @@
 ## Core Files and Their Relationships
 
 ### Validation Outputs
-1. **Naturalis output** (`sum.tsv`)
+1. **Naturalis output** (`concat_naturalis.tsv`)
    - Core validation results
    - Primary key: `sequence_id` (strips to BOLD Process ID)
    - Contains standard validation columns only
