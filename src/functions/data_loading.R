@@ -1,6 +1,3 @@
-library(tidyverse)
-library(lubridate)
-
 load_validation_data <- function(nhm_path, naturalis_path) {
   # Load NHM validation data
   nhm_validation <- read_delim(
