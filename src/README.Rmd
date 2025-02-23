@@ -5,35 +5,174 @@ date: "2025-02-23"
 output: pdf_document
 ---
 
-# BGE Project Milestone MS8.4.1: DNA Barcode Validation Analysis
+```{r setup, include=FALSE}
+library(tidyverse)
+library(lubridate)
+library(viridis)  # For color-blind friendly palettes
+library(cowplot)  # For publication-ready plots
+library(scales)   # For nice axis formatting
 
-This document analyzes DNA barcode validation results from the BGE project, 
-combining outputs from two institutions (Naturalis and Natural History Museum) 
-with BOLD spreadsheet data. The analysis explores parameter optimization, 
-sequence quality metrics, temporal patterns, and taxonomic success rates. The 
-results will inform optimization of the MGE pipeline parameters and contribute 
-to understanding factors affecting DNA barcode recovery from historical 
-specimens.
-
-```{r}
-source("src/functions/data_loading.R")
-
-validation_data <- load_validation_data(
-  nhm_path = "data/concatenated_untriaged.tsv",
-  naturalis_path = "data/sum.tsv"
+# Set default theme for all plots
+theme_set(
+  theme_minimal(base_size = 12) +
+  theme(
+    text = element_text(family = "Arial"),
+    plot.title = element_text(size = 14, face = "bold"),
+    axis.title = element_text(size = 12),
+    axis.text = element_text(size = 10),
+    legend.title = element_text(size = 12),
+    legend.text = element_text(size = 10)
+  )
 )
 
-# Access individual dataframes
-nhm_df <- validation_data$nhm
-naturalis_df <- validation_data$naturalis
+# Define standard figure dimensions (in inches)
+fig_width <- 8
+fig_height <- 6
+
+# Define project color palette using viridis
+project_colors <- scale_color_viridis(discrete = TRUE)
+project_fills <- scale_fill_viridis(discrete = TRUE)
+
+# Set up common plot saving parameters
+save_plot <- function(filename, plot, width = fig_width, height = fig_height) {
+  ggsave(
+    filename = file.path("figures", filename),
+    plot = plot,
+    width = width,
+    height = height,
+    dpi = 300
+  )
+}
 ```
 
-```{r}
-source("src/functions/preprocessing.R")
+# BGE Project Milestone MS8.4.1: DNA Barcode Validation Analysis
+
+## Analysis Overview
+
+This document presents a comprehensive analysis of DNA barcode validation 
+results from the BGE project, combining outputs from two institutions (Naturalis 
+and Natural History Museum) with BOLD spreadsheet data. The analysis is 
+structured around four key areas:
+
+1. **MGE Parameter Space Analysis**: Evaluating how different pipeline 
+   parameters (r, s combinations) affect barcode recovery success and quality.
+2. **Quality Metrics Analysis**: Investigating the distribution and 
+   relationships between various sequence quality indicators and assembly 
+   metrics.
+3. **Temporal Analysis**: Examining how specimen age influences barcode 
+   recovery success and quality metrics.
+4. **Taxonomic Analysis**: Analyzing success rates and failure patterns across 
+   different taxonomic groups.
+
+Each section includes data visualization and statistical analysis to support 
+findings relevant to optimizing the MGE pipeline and understanding factors 
+affecting DNA barcode recovery from historical specimens.
+
+## Loading Data and Metadata
+
+We start by loading the outputs of the barcode validation pipeline for NHM
+and Naturalis:
+
+```{r data_loading}
+source("functions/data_loading.R")
+
+validation_data <- load_validation_data(
+  nhm_path = "../data/concatenated_untriaged.tsv",
+  naturalis_path = "../data/concat_naturalis.tsv"
+)
+```
+
+We then join this data with BOLD lab sheets to enrich the validation data with
+the expected taxonomy and collection date:
+
+```{r preprocessing}
+source("functions/preprocessing.R")
 
 joined_data <- join_validation_taxonomy(
   validation_data,
-  lab_sheet_path = "data/lab_sheet.tsv",
-  taxonomy_path = "data/taxonomy.tsv"
+  lab_sheet_path = "../data/lab_sheet.tsv",
+  taxonomy_path = "../data/taxonomy.tsv"
 )
+
+# Create directory for figures if it doesn't exist
+if (!dir.exists("figures")) {
+  dir.create("figures")
+}
 ```
+
+## Applying Validation
+
+We define sequence validation success based on five key criteria:
+
+1. No more than 6 ambiguous bases in barcode region
+2. Barcode region length of at least 500 bp
+3. No processing errors
+4. No stop codons in translation
+5. Expected family found in BLAST results
+
+```{r}
+# Add validation status to both NHM and Naturalis datasets
+add_validation_status <- function(df) {
+  df %>%
+    mutate(
+      is_valid = !is.na(nuc_basecount) &  # Check if sequence exists
+                ambig_basecount <= 6 &     # Ambiguous bases threshold
+                nuc_basecount >= 500 &     # Minimum length threshold
+                error == "None" &          # No processing errors
+                stop_codons == 0 &         # No stop codons
+                # Check if identification is in observed taxa
+                # Need to handle NA values in either field
+                (!is.na(identification) & !is.na(obs_taxon) & 
+                 str_detect(obs_taxon, fixed(identification)))
+    )
+}
+
+joined_data$nhm <- add_validation_status(joined_data$nhm)
+joined_data$naturalis <- add_validation_status(joined_data$naturalis)
+```
+
+Here we plot how this went:
+
+```{r}
+# Aggregate validation results by Process ID for each institution
+process_level_summary <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control) %>%
+    group_by(process_id) %>%
+    summarise(
+      attempts = n(),
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    summarise(
+      total_specimens = n(),
+      specimens_with_valid = sum(any_valid, na.rm = TRUE),
+      success_rate = mean(any_valid, na.rm = TRUE) * 100,
+      avg_attempts = mean(attempts)
+    ),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control) %>%
+    group_by(process_id) %>%
+    summarise(
+      attempts = n(),
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ) %>%
+    summarise(
+      total_specimens = n(),
+      specimens_with_valid = sum(any_valid, na.rm = TRUE),
+      success_rate = mean(any_valid, na.rm = TRUE) * 100,
+      avg_attempts = mean(attempts)
+    ),
+  .id = "Institution"
+)
+
+# Display process-level summary
+knitr::kable(process_level_summary,
+             digits = 1,
+             col.names = c("Institution", "Total Specimens", "Valid Specimens", 
+                          "Success Rate (%)", "Avg Attempts/Specimen"),
+             caption = "Validation success rates at Process ID level by institution")
+```
+
+
