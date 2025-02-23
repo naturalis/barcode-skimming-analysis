@@ -71,7 +71,7 @@ affecting DNA barcode recovery from historical specimens.
 ## Loading Data and Metadata
 
 We start by loading the outputs of the barcode validation pipeline for NHM
-and Naturalis:
+and Naturalis.
 
 ```{r data_loading}
 source("functions/data_loading.R")
@@ -83,7 +83,7 @@ validation_data <- load_validation_data(
 ```
 
 We then join this data with BOLD lab sheets to enrich the validation data with
-the expected taxonomy and collection date:
+the expected taxonomy and collection date.
 
 ```{r preprocessing}
 source("functions/preprocessing.R")
@@ -100,6 +100,13 @@ if (!dir.exists("figures")) {
 }
 ```
 
+Finally, we process the data further to extract some MGE parameter values from
+Naturalis' sequence IDs.
+
+```{r parameters}
+source("functions/parameter-parsing.R")
+```
+
 ## Applying Validation
 
 We define sequence validation success based on five key criteria:
@@ -111,68 +118,38 @@ We define sequence validation success based on five key criteria:
 5. Expected family found in BLAST results
 
 ```{r}
-# Add validation status to both NHM and Naturalis datasets
-add_validation_status <- function(df) {
-  df %>%
-    mutate(
-      is_valid = !is.na(nuc_basecount) &  # Check if sequence exists
-                ambig_basecount <= 6 &     # Ambiguous bases threshold
-                nuc_basecount >= 500 &     # Minimum length threshold
-                error == "None" &          # No processing errors
-                stop_codons == 0 &         # No stop codons
-                # Check if identification is in observed taxa
-                # Need to handle NA values in either field
-                (!is.na(identification) & !is.na(obs_taxon) & 
-                 str_detect(obs_taxon, fixed(identification)))
-    )
-}
-
-joined_data$nhm <- add_validation_status(joined_data$nhm)
-joined_data$naturalis <- add_validation_status(joined_data$naturalis)
+source("functions/add-is_valid.R")
 ```
 
 Here we plot how this went:
 
 ```{r}
-# Aggregate validation results by Process ID for each institution
-process_level_summary <- bind_rows(
-  NHM = joined_data$nhm %>%
-    filter(!is_control) %>%
-    group_by(process_id) %>%
-    summarise(
-      attempts = n(),
-      any_valid = any(is_valid, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    summarise(
-      total_specimens = n(),
-      specimens_with_valid = sum(any_valid, na.rm = TRUE),
-      success_rate = mean(any_valid, na.rm = TRUE) * 100,
-      avg_attempts = mean(attempts)
-    ),
-  Naturalis = joined_data$naturalis %>%
-    filter(!is_control) %>%
-    group_by(process_id) %>%
-    summarise(
-      attempts = n(),
-      any_valid = any(is_valid, na.rm = TRUE),
-      .groups = "drop"
-    ) %>%
-    summarise(
-      total_specimens = n(),
-      specimens_with_valid = sum(any_valid, na.rm = TRUE),
-      success_rate = mean(any_valid, na.rm = TRUE) * 100,
-      avg_attempts = mean(attempts)
-    ),
-  .id = "Institution"
-)
+source("functions/plot-raw-success.R")
 
 # Display process-level summary
 knitr::kable(process_level_summary,
              digits = 1,
              col.names = c("Institution", "Total Specimens", "Valid Specimens", 
-                          "Success Rate (%)", "Avg Attempts/Specimen"),
+                           "Success Rate (%)", "Avg Attempts/Specimen"),
              caption = "Validation success rates at Process ID level by institution")
 ```
 
+## MGE parameter analysis
 
+Now we investigate the effect of the MGE parameters. We produce:
+
+1. A heatmap showing validation success rates across parameter combinations for 
+  both institutions
+2. A detailed breakdown plot showing:
+   - Overall validation success
+   - Individual failure mode rates
+   - For each parameter combination and institution
+3. Statistical analysis to quantify:
+   - Parameter effects
+   - Institution differences
+   - Parameter-institution interactions
+4. A summary table of optimal parameters for each institution
+
+```{r mge}
+source("functions/mge-params.R")
+```
