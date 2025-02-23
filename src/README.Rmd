@@ -153,3 +153,232 @@ Now we investigate the effect of the MGE parameters. We produce:
 ```{r mge}
 source("functions/mge-params.R")
 ```
+## Taxonomic analysis
+
+This code will produce a simple table showing:
+
+1. Each order (with at least 5 specimens)
+2. Total number of specimens in that order
+3. Number of successful validations
+4. Success rate as a percentage
+
+The results are sorted by success rate in descending order. 
+
+```{r taxa}
+# Calculate success rates by Order
+order_success <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control) %>%
+    group_by(process_id, Order) %>%
+    summarise(
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control) %>%
+    group_by(process_id, Order) %>%
+    summarise(
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ),
+  .id = "institution"
+) %>%
+  filter(!is.na(Order)) %>%
+  group_by(Order) %>%
+  summarise(
+    n_specimens = n(),
+    n_valid = sum(any_valid, na.rm = TRUE),
+    success_rate = round(n_valid / n_specimens * 100, 1)
+  ) %>%
+  filter(n_specimens >= 5) %>%
+  arrange(desc(success_rate))
+
+# Print the results
+print(order_success, n = Inf)
+```
+
+Now we make a barchart that shows how many of these orders were processed
+by the institutions.
+
+```{r institutions}
+# Create factor with orders in descending success rate order
+order_levels <- rev(c(
+  "Blattodea", "Orthoptera", "Hymenoptera", "Hemiptera", "Lepidoptera",
+  "Odonata", "Diptera", "Trichoptera", "Coleoptera", "Plecoptera",
+  "Dermaptera", "Ephemeroptera"
+))
+
+# Calculate proportions by institution
+order_proportions <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control),
+  .id = "institution"
+) %>%
+  filter(!is.na(Order), Order %in% order_levels) %>%
+  # Count unique Process IDs per order and institution
+  group_by(institution, Order) %>%
+  summarise(
+    specimens = n_distinct(process_id),
+    .groups = "drop"
+  ) %>%
+  # Calculate percentage within each institution
+  group_by(institution) %>%
+  mutate(
+    total_specimens = sum(specimens),
+    percentage = specimens / total_specimens * 100,
+    Order = factor(Order, levels = order_levels)
+  )
+
+# Create the plot
+ggplot(order_proportions, 
+       aes(x = Order, y = percentage, fill = institution)) +
+  geom_col(position = "dodge", width = 0.8) +
+  coord_flip() +
+  scale_fill_viridis_d(name = "Institution") +
+  labs(
+    x = "Order",
+    y = "Percentage of Institution's Specimens",
+    title = "Distribution of Orders by Institution",
+    subtitle = "Orders sorted by decreasing success rate (top to bottom)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = 10),
+    plot.title = element_text(size = 12, face = "bold"),
+    plot.subtitle = element_text(size = 10),
+    legend.position = "bottom"
+  )
+```
+
+Taking just Coleoptera as a like-for-like comparison, here we calculate the
+success rate of the two institutions:
+
+```{r coleoptera}
+# Calculate Coleoptera success rates by institution
+coleoptera_success <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control, Order == "Hemiptera") %>%
+    group_by(process_id) %>%
+    summarise(
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control, Order == "Hemiptera") %>%
+    group_by(process_id) %>%
+    summarise(
+      any_valid = any(is_valid, na.rm = TRUE),
+      .groups = "drop"
+    ),
+  .id = "institution"
+) %>%
+  group_by(institution) %>%
+  summarise(
+    total_specimens = n(),
+    valid_specimens = sum(any_valid, na.rm = TRUE),
+    success_rate = round(valid_specimens / total_specimens * 100, 1)
+  )
+
+print(coleoptera_success)
+```
+
+Now we plot success rate by age in bins of 20 years:
+
+```{r age}
+# Create age bins and calculate success rates
+age_success <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control),
+  .id = "institution"
+) %>%
+  # Filter out specimens without ages or too old
+  filter(!is.na(specimen_age_years), 
+         specimen_age_years <= 201) %>%
+  # Create age bins
+  mutate(
+    age_bin = cut(specimen_age_years, 
+                  breaks = seq(0, 201, by = 20),
+                  labels = paste(seq(0, 180, by = 20), 
+                               seq(20, 200, by = 20), 
+                               sep = "-"),
+                  include.lowest = TRUE)
+  ) %>%
+  # Calculate success rates per bin
+  group_by(age_bin, institution) %>%
+  summarise(
+    total_specimens = n_distinct(process_id),
+    valid_specimens = sum(tapply(is_valid, process_id, any)),
+    success_rate = valid_specimens / total_specimens * 100,
+    # Calculate confidence intervals
+    se = sqrt((success_rate/100 * (1 - success_rate/100)) / total_specimens) * 100,
+    ci_lower = pmax(0, success_rate - 1.96 * se),
+    ci_upper = pmin(100, success_rate + 1.96 * se),
+    .groups = "drop"
+  )
+
+# Create the plot
+ggplot(age_success, aes(x = age_bin, y = success_rate, 
+                        color = institution, group = institution)) +
+  geom_line() +
+  geom_point(aes(size = total_specimens)) +
+  geom_ribbon(aes(ymin = ci_lower, ymax = ci_upper, fill = institution),
+              alpha = 0.2, color = NA) +
+  scale_size_continuous(name = "Number of\nSpecimens",
+                       breaks = c(10, 50, 100, 500, 1000)) +
+  scale_color_viridis_d(name = "Institution") +
+  scale_fill_viridis_d(name = "Institution") +
+  labs(
+    x = "Specimen Age (Years)",
+    y = "Success Rate (%)",
+    title = "DNA Barcode Success Rate by Specimen Age",
+    subtitle = "Point size indicates number of specimens in each bin"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    plot.title = element_text(size = 12, face = "bold"),
+    plot.subtitle = element_text(size = 10)
+  )
+```
+
+And now we look at plate effects:
+
+```{r plates}
+# Analyze success rates by plate
+plate_success <- bind_rows(
+  NHM = joined_data$nhm %>%
+    filter(!is_control),
+  Naturalis = joined_data$naturalis %>%
+    filter(!is_control),
+  .id = "institution"
+) %>%
+  # Extract plate IDs from Sample ID
+  filter(str_detect(`Sample ID`, "^BGE_\\d{5}_[A-Z]\\d{2}$")) %>%
+  mutate(
+    plate_id = str_extract(`Sample ID`, "(?<=BGE_)\\d{5}")
+  ) %>%
+  # Calculate success rate per plate
+  group_by(plate_id) %>%
+  summarise(
+    total_specimens = n_distinct(process_id),
+    valid_specimens = sum(tapply(is_valid, process_id, any)),
+    success_rate = round(valid_specimens / total_specimens * 100, 1),
+    # Aggregate unique orders on the plate
+    Orders = paste(sort(unique(Order[!is.na(Order)])), collapse = ", "),
+    .groups = "drop"
+  ) %>%
+  arrange(desc(success_rate)) %>%
+  # Rename columns for output
+  rename(
+    "Plate ID" = plate_id,
+    "Success %" = success_rate,
+    "Specimens" = total_specimens
+  )
+
+# Print results
+print(plate_success, n = Inf)
+```
