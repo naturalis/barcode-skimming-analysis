@@ -382,3 +382,149 @@ plate_success <- bind_rows(
 # Print results
 print(plate_success, n = Inf)
 ```
+
+And now we build the bar chart of the institutions:
+
+```{r bar}
+# Read the lab sheet
+lab_data <- read_delim(
+  "../data/lab_sheet.tsv", 
+  delim="\t"
+)
+
+# VERY SIMPLE DIRECT APPROACH
+
+# Step 1: Count total specimens per institution
+institution_totals <- lab_data %>%
+  count(Institution, name = "total") %>%
+  arrange(desc(total))
+
+# Step 2: Count by status
+status_counts <- lab_data %>%
+  # Classify as published/unpublished only
+  mutate(status = ifelse(`COI-5P Seq. Length` == "0[n]", "Unpublished", "Published")) %>%
+  # Count by institution and status
+  count(Institution, status) %>%
+  # Join with the sorted totals
+  inner_join(institution_totals, by = "Institution") %>%
+  # Calculate percentages
+  mutate(percentage = n / total * 100)
+
+# Step 3: Get institutions in descending order
+ordered_institutions <- institution_totals$Institution
+
+# Step 4: Add wrapping to institution names
+wrap_name <- function(name) {
+  if(is.na(name)) return(NA)
+  words <- strsplit(name, " ")[[1]]
+  if(length(words) <= 2) return(name)
+  
+  midpoint <- ceiling(length(words)/2)
+  paste(
+    paste(words[1:midpoint], collapse=" "),
+    paste(words[(midpoint+1):length(words)], collapse=" "),
+    sep="\n"
+  )
+}
+
+# Create a data frame with institution and wrapped names
+wrapped_institutions <- data.frame(
+  Institution = ordered_institutions,
+  wrapped_name = sapply(ordered_institutions, wrap_name),
+  stringsAsFactors = FALSE
+)
+
+# Step 5: Join everything together
+plot_data <- status_counts %>%
+  inner_join(wrapped_institutions, by = "Institution") %>%
+  # Make sure factor levels preserve the order
+  mutate(Institution = factor(Institution, levels = ordered_institutions))
+
+# Step 6: Create the plot DIRECTLY using the ordered data
+ggplot(plot_data, aes(x = Institution, y = percentage, fill = status)) +
+  geom_col(width = 0.7) +
+  # Add count labels
+  geom_text(
+    aes(label = n),
+    position = position_stack(vjust = 0.5),
+    color = "white",
+    size = 3
+  ) +
+  # Add total above bars
+  geom_text(
+    data = institution_totals,
+    aes(x = Institution, y = 105, label = total),
+    inherit.aes = FALSE,
+    size = 3
+  ) +
+  # Use viridis colors
+  scale_fill_viridis_d(name = "Status", option = "viridis", begin = 0.3, end = 0.7) +
+  # Use wrapped name labels
+  scale_x_discrete(labels = setNames(wrapped_institutions$wrapped_name, 
+                                   wrapped_institutions$Institution)) +
+  # Format axes
+  labs(
+    title = "Specimen Publication Status by Institution",
+    subtitle = "Institutions sorted by total specimen count (descending)",
+    x = NULL,
+    y = "Percentage of Specimens (%)"
+  ) +
+  # Format theme
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5, size = 8),
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "top",
+    panel.grid.major.x = element_blank()
+  ) +
+  # Set y-axis limits
+  scale_y_continuous(limits = c(0, 110), breaks = seq(0, 100, 25))
+
+# Save the plot
+ggsave("institution_publication.png", width = 14, height = 7, dpi = 300)
+```
+
+And as a table:
+
+```{r table}
+# Read the lab sheet
+lab_data <- read_delim(
+  "../data/lab_sheet.tsv", 
+  delim="\t"
+)
+
+# Create the statistics table
+institution_stats <- lab_data %>%
+  # Classify as published/unpublished
+  mutate(status = ifelse(`COI-5P Seq. Length` == "0[n]", "Unpublished", "Published")) %>%
+  # Count by institution and status
+  count(Institution, status) %>%
+  # Pivot to create columns for Published and Unpublished
+  pivot_wider(
+    names_from = status,
+    values_from = n,
+    values_fill = 0  # Fill with 0 if no values exist
+  ) %>%
+  # Calculate totals and percentages
+  mutate(
+    Total = Published + Unpublished,
+    `Percentage Complete` = round(100 * Published / Total, 1)
+  ) %>%
+  # Sort by total in descending order
+  arrange(desc(Total)) %>%
+  # Rename columns to match requested format
+  rename(
+    `Specimens Published` = Published,
+    `Specimens Unpublished` = Unpublished
+  ) %>%
+  # Select columns in requested order
+  select(Institution, `Specimens Unpublished`, `Specimens Published`, `Percentage Complete`)
+
+# Print the formatted table
+knitr::kable(institution_stats, 
+             caption = "Publication Status by Institution",
+             format = "markdown")
+
+# Also save as CSV for potential future use
+write.csv(institution_stats, "institution_statistics.csv", row.names = FALSE)
